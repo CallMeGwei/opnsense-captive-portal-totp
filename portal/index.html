@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Network Access</title>
+    <link href="css/signin.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="js/jquery-3.5.1.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            var redirurl = (new URL(window.location)).searchParams.get('redirurl');
+
+            // auto-tab / auto-submit behavior for 6-digit input
+            var $code = $("#inputCode");
+
+            // only allow digits, max 6
+            $code.on("input", function () {
+                this.value = this.value.replace(/[^0-9]/g, "").slice(0, 6);
+            });
+
+            function doLogin() {
+                var code = $code.val();
+                if (code.length !== 6) return;
+
+                $("#alertMSG").addClass("hidden");
+                $("#signin").prop("disabled", true).text("Connecting\u2026");
+
+                $.ajax({
+                    type: "POST",
+                    url: "/api/captiveportal/access/logon/",
+                    dataType: "json",
+                    data: { user: "guest", password: code }
+                }).done(function (data) {
+                    if (data.clientState === "AUTHORIZED") {
+                        $("#login_form").addClass("hidden");
+                        $("#successMSG").removeClass("hidden");
+                        setTimeout(function () {
+                            if (redirurl) {
+                                window.location = "http://" + redirurl + "?refresh";
+                            } else {
+                                window.location.reload();
+                            }
+                        }, 1200);
+                    } else {
+                        $code.val("");
+                        showError("Invalid code");
+                        $("#signin").prop("disabled", false).text("Connect");
+                    }
+                }).fail(function () {
+                    showError("Unable to reach authentication server");
+                    $("#signin").prop("disabled", false).text("Connect");
+                });
+            }
+
+            $("#signin").click(function (e) {
+                e.preventDefault();
+                doLogin();
+            });
+
+            // submit on Enter key
+            $code.keypress(function (e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    doLogin();
+                }
+            });
+
+            // logoff
+            $("#logoff").click(function (e) {
+                e.preventDefault();
+                $.ajax({
+                    type: "POST",
+                    url: "/api/captiveportal/access/logoff/",
+                    dataType: "json",
+                    data: {}
+                }).done(function () {
+                    window.location.reload();
+                }).fail(function () {
+                    showError("Unable to disconnect");
+                });
+            });
+
+            function showError(msg) {
+                $("#errorMSGtext").text(msg);
+                $("#alertMSG").removeClass("hidden");
+            }
+
+            // check current status
+            $.ajax({
+                type: "POST",
+                url: "/api/captiveportal/access/status/",
+                dataType: "json",
+                data: {}
+            }).done(function (data) {
+                if (data.clientState === "AUTHORIZED") {
+                    $("#logout_frm").removeClass("hidden");
+                } else {
+                    $("#login_form").removeClass("hidden");
+                    $code.focus();
+                }
+            }).fail(function () {
+                $("#login_form").removeClass("hidden");
+                $code.focus();
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="network-name">Network Access</div>
+
+            <!-- Login form -->
+            <div id="login_form" class="hidden">
+                <p class="subtitle">Enter the 6-digit access code</p>
+                <input type="text" id="inputCode" inputmode="numeric" pattern="[0-9]*"
+                       maxlength="6" autocomplete="one-time-code" autocorrect="off"
+                       autocapitalize="off" placeholder="------" autofocus>
+                <button id="signin" type="button">Connect</button>
+            </div>
+
+            <!-- Logout form -->
+            <div id="logout_frm" class="hidden">
+                <p class="subtitle connected">You are connected</p>
+                <button id="logoff" type="button" class="btn-logout">Disconnect</button>
+            </div>
+
+            <!-- Success message -->
+            <div id="successMSG" class="hidden">
+                <p class="subtitle connected">Connected — redirecting&hellip;</p>
+            </div>
+
+            <!-- Error message -->
+            <div id="alertMSG" class="hidden">
+                <p class="error-msg" id="errorMSGtext"></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

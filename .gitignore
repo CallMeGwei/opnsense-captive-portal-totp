@@ -1,0 +1,19 @@
+# Build artifacts
+portal_template.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE / editor
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
